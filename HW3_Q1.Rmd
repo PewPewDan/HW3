@@ -1,0 +1,58 @@
+---
+title: "HW#3"
+author: "Daniil Deych, Reilly Blakeslee, Alex Mykietyn"
+date: "`r Sys.Date()`"
+output: pdf_document:
+          keep_md: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+# Question 1
+
+1. Simply running "Crime" on "Police" regression to infer causality ignores the common correlation vs causation fallacy. It isn't unreasonable to conclude that high crime places would warrant high amounts of police, in which case the regression would suggest that high police numbers results in high crime. Obviously that wouldn't be the case.
+
+2. The reason the regression above will provide false results is because of the inability to observe the counter-factual, since it isn't likely to observe low crime areas that would have large amounts of police and vice versa. That is why in the podcast the quoted research had to get creative and try to find examples that would somehow mimic such counter-factual. 
+
+What they came up with is a psedo counter-factual case of when Washington DC would add significant amount of police that wouldn't be warrnated by the current crime rates to monitor any potential terrorist activity. Because the extra police presence wasn't warranted by the rise in crime, this research could be seen as deterministic of the causal relationship between crime and police presence.
+
+The table 2 provides the results of such approach. The culomn of interest in the second one, as it controls for the Metro ridership (reason for it is answered in Question 3)
+
+According to the findings on high alert days (days with increased police prsensence due to high terrorist alert) there is a significant (on 5% level) drop in total number of daily crimes. On average the total number crimes drops by 6.046 crimes.
+
+3. The reason why the researchers had to control for Metro ridership is because the concern was that it is possible that on high alert days the number of potential crime victims was lower than on other typical days. Controlling for Metro ridership is how the researchers solved that problem. The thinking was that if high alert days would keep people inside their homes, then that would be reflected by the number of people riding the Metro. So after controlling for that, the researchers still found significan reduction in crime with increased police presense that wasn't there because the crime rates have gone up. This kind of thinking is what led to conclude that there is a potential causal relationship between high police presence and lower crimer rates.
+
+4. Table 4 creates a further distinction in crime levels between parts of Washington DC, where there was greater police presence and the rest of the city. The dummy variable "District 1" in the model breaks down the data between the data points that belong to National Mall area (District 1) and the rest.
+
+Looking at the first column, the coefficients listed describe how the crime level changes on high alert days seperated by geographical dummy variable. The results show that in the National Mall area, where police presence was higher than everywhere else in Washington DC, the total number of crimes dropped by 2.621, and the finding was significant on a 1% level.
+
+Everywher else in DC (dummy variable = 0) the change in crime was not significant, suggesting that the increased police presence in District 1 did not have any impact on crime outside the National Mall area.
+
+All of the above results were controlled for the Metro ridership.
+
+```{r}
+
+```
+
