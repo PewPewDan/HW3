@@ -5,30 +5,199 @@ date: "`r Sys.Date()`"
 output: pdf_document
           keem_md: TRUE
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
-
 # Question 4
+
+```{r, echo=FALSE}
+install.packages('mapdata')
+install.packages('sf')
+
+# Install and load necessary packages
+install.packages(c("ggplot2", "maps", "ggmap", "maptools", "rgdal"))
+library(ggplot2)
+library(maps)
+library(ggmap)
+library(maptools)
+library(rgdal)
+
+
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(rsample) 
+library(dplyr)
+
+library(randomForest)
+library(lubridate)
+library(modelr)
+
+library(gbm)
+library(pdp)
+library(MASS)
+
+library(readr)
+library(ggplot2)
+library(reshape2)
+library(maps)
+library(mapdata)
+
+
+CAhousing <- read_csv("CAhousing.csv")
+```
+To find our best predictive model, we elected to use three different methods. Since our total number of features isn't that high - only 9 after standardizing by household. For that reason some version of a tree model is likely to work best.
+
+To test that approach we also included a linear model to compare against.
+
+The first model we attempt is a Random Forest Model, which we then compare to the General Boosted Regression approach.
+
+## Random Forest Model
+
+```{r, echo=FALSE}
+#Creating variables demonstrating averages of statistics per household
+colnames(CAhousing)[c(1, 2)] <- c("long", "lat")
+
+CAH <- CAhousing %>%
+  mutate(avg_rooms = totalRooms/households, 
+         avg_bedrooms = totalBedrooms/households,
+         avg_house_pop = population/households) 
+
+#split data
+CAH_split = initial_split(CAH)
+CAH_train = training(CAH_split)
+CAH_test = testing(CAH_split)
+
+CAH_forest = randomForest(medianHouseValue ~ housingMedianAge + medianIncome + 
+                          avg_rooms + avg_bedrooms + avg_house_pop + long
+                          + lat, data = CAH_train,
+                          importance = TRUE)
+
+# shows out-of-bag MSE as a function of the number of trees used
+plot(CAH_forest)
+
+#Forest Prediction for price given location
+partialPlot(CAH_forest, as.data.frame(CAH_test), long, las=1)
+partialPlot(CAH_forest, as.data.frame(CAH_test), lat, las=1)
+```
+
+## General Boosted Regression Model
+
+We make a build set and a check set to adjust parameters.
+
+```{r, echo=FALSE, message=FALSE}
+CAH_train_split = initial_split(CAH_train)
+CAH_boost_build = training(CAH_train_split)
+CAH_boost_check = testing(CAH_train_split)
+
+
+CAH_boost1 = gbm(medianHouseValue ~ housingMedianAge + medianIncome +
+                     avg_rooms + avg_bedrooms + avg_house_pop + long
+                     + lat, data = CAH_boost_build,
+              interaction.depth=11, n.trees=1000, shrinkage=.08)
+ 
+CAH_boost2 = gbm(medianHouseValue ~ housingMedianAge + medianIncome +
+                    avg_rooms + avg_bedrooms + avg_house_pop + long
+                  + lat, data = CAH_boost_build,
+                     interaction.depth=14, n.trees=1000, shrinkage=.08)
+
+CAH_boost3 = gbm(medianHouseValue ~ housingMedianAge + medianIncome +
+                   avg_rooms + avg_bedrooms + avg_house_pop + long
+                 + lat, data = CAH_train,
+                    interaction.depth=12, n.trees=1000, shrinkage=.08)
+
+rmse(CAH_boost1, CAH_boost_check)
+rmse(CAH_boost2, CAH_boost_check)
+rmse(CAH_boost3, CAH_boost_check)
+```
+After adjusting the parameters, we conclude that the interaction depth of 12 is most optimal.
+
+# Plot of predictions for y given location 
+
+```{r, echo=FALSE, fig.show=FALSE }
+p1 = pdp::partial(CAH_boost3, pred.var = 'long', n.trees=1000)
+ggplot(p1) + geom_point(mapping=aes(x=long, y=yhat))
+
+p2 = pdp::partial(CAH_boost3, pred.var = 'lat', n.trees=1000)
+ggplot(p2) + geom_point(mapping=aes(x=lat, y=yhat))
+```
+As a comparison, we also added a linear model.
+
+# Linear model
+
+```{r, echo=FALSE}
+CAH_lm = lm(data = CAH_train, medianHouseValue ~ housingMedianAge + medianIncome +
+              avg_rooms + avg_bedrooms + avg_house_pop + long
+            + lat )
+CAH_stepwise = stepAIC(CAH_lm, direction = "both", 
+                        trace = FALSE)
+summary(CAH_stepwise)
+```
+Finally we compared the out-of-sample error for the 3 approaches against our test set.
+
+# RMSE test
+
+```{r, echo=FALSE}
+rmse(CAH_boost3, CAH_test)
+rmse(CAH_forest, CAH_test)
+rmse(CAH_lm, CAH_test)
+```
+After comparing RMSE values between GBM, RandomForest and linear models, the lowest RMSE value belongs to our GBM model. 
+
+GBM That will act as our best predictive model, which provided the following results.
+
+# Plot of the Original Data
+```{r, echo=FALSE}
+ca_data <- map_data("state", region = "california")
+
+california_map <- ggplot(ca_data, aes(x = long, y = lat, group = group)) +
+  geom_polygon(fill = "grey50", color = "white") +
+  theme_void()
+
+colnames(CAH)[c(1, 2)] <- c("long", "lat") 
+
+CAH_MedianHouseValue = CAH[c(1,2,9)]
+
+california_MedianHouseValue <- ggplot() +
+  geom_polygon(data = ca_data, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  geom_tile(data = CAH_MedianHouseValue, aes(x = long, y = lat, fill = medianHouseValue), alpha = 1) +
+  scale_fill_gradient(low = "blue", high = "red") +
+  coord_equal() +
+  labs(title = "California Median House Value Map", fill = "Median House Value")
+
+california_MedianHouseValue
+```
+# Plot of our best Prediction Model
+```{r, echo=FALSE}
+colnames(CAH_test)[c(1, 2)] <- c("long", "lat")
+
+CAH_MedianHouseValue_test = CAH_test[c(1,2,9)] %>%
+  mutate(ln_medianHouseValue = log(medianHouseValue))
+
+california_MedianHouseValue_GBM <- ggplot() +
+  geom_polygon(data = ca_data, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  geom_tile(data = CAH_MedianHouseValue_test, aes(x = long, y = lat, color = medianHouseValue), alpha = 1) +
+  scale_fill_gradient() +
+  coord_equal() +
+  labs(title = "Predictive California Median House Value Map", fill = "Median House Value")
+
+california_MedianHouseValue_GBM
+```
+# Error/residuals Plot
+```{r, echo=FALSE, warning=FALSE}
+
+CAH_MedianHouseValue_test = CAH_MedianHouseValue_test %>%
+  mutate(value_predgbm = predict(CAH_boost3, CAH_test, n.trees = 1000),pred_errorgbm=(medianHouseValue-value_predgbm)^2) 
+CAH_MedianHouseValue_test = CAH_MedianHouseValue_test %>%
+  mutate(sqpred_errorgbm=sqrt(pred_errorgbm))
+
+california_MedianHouseValue_ErrorGBM <- ggplot() +
+  geom_polygon(data = ca_data, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
+  geom_tile(data = CAH_MedianHouseValue_test, aes(x = long, y = lat, color = sqpred_errorgbm), alpha = 1) +
+  scale_fill_gradient() +
+  coord_equal() +
+  labs(title = "Predictive California Median House Value Map", fill = "Median House Value")
+
+california_MedianHouseValue_ErrorGBM
+
+```
+
+
 
