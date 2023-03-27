@@ -174,7 +174,7 @@ CAH_MedianHouseValue_test = CAH_test[c(1,2,9)] %>%
 california_MedianHouseValue_GBM <- ggplot() +
   geom_polygon(data = ca_data, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
   geom_tile(data = CAH_MedianHouseValue_test, aes(x = long, y = lat, color = medianHouseValue), alpha = 1) +
-  scale_fill_gradient() +
+  scale_fill_gradient(low = "blue", high = "red") +
   coord_equal() +
   labs(title = "Predictive California Median House Value Map", fill = "Median House Value")
 
