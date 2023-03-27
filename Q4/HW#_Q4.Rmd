@@ -185,15 +185,16 @@ california_MedianHouseValue_GBM
 
 CAH_MedianHouseValue_test = CAH_MedianHouseValue_test %>%
   mutate(value_predgbm = predict(CAH_boost3, CAH_test, n.trees = 1000),pred_errorgbm=(medianHouseValue-value_predgbm)^2) 
+
 CAH_MedianHouseValue_test = CAH_MedianHouseValue_test %>%
   mutate(sqpred_errorgbm=sqrt(pred_errorgbm))
 
 california_MedianHouseValue_ErrorGBM <- ggplot() +
   geom_polygon(data = ca_data, aes(x = long, y = lat, group = group), fill = "white", color = "black") +
   geom_tile(data = CAH_MedianHouseValue_test, aes(x = long, y = lat, color = sqpred_errorgbm), alpha = 1) +
-  scale_fill_gradient() +
+  scale_fill_gradient(low = "lightblue", high = "red") +
   coord_equal() +
-  labs(title = "Predictive California Median House Value Map", fill = "Median House Value")
+  labs(title = "Error/Residual Map")
 
 california_MedianHouseValue_ErrorGBM
 
