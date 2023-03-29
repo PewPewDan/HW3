@@ -107,7 +107,6 @@ rmse_boost <- round(mean(unlist(boost_error)), 2)
 ```{r, echo = FALSE}
 library(knitr)
 my_data = data.frame(med_error, step_error, boost_error, forest_error)
-my_data
 
 kable(my_data)
 
@@ -118,7 +117,7 @@ kable(my_data)
 
 Fron this plot, it does appear as though green rating does cause an increase in revenue - however, a rating of 1 only increases revenue about $100 from a rating of 0, so it is clearly not the most important variables.
 
-``` {r, include=TRUE, warning=FALSE, message=FALSE}
+``` {r, echo = FALSE, warning=FALSE, message=FALSE}
 
 library(pdp)
 p = pdp::partial(rforest, pred.var = 'green_rating', las = 1)
@@ -137,7 +136,7 @@ From these test, it seems as though the forest model provided the best RMSE in t
 
 
 
-``` {r, include=TRUE, warning=FALSE, message=FALSE}
+``` {r, echo=FALSE, warning=FALSE, message=FALSE}
 varImpPlot(rforest)
 ```
 
