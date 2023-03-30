@@ -1,0 +1,117 @@
+---
+title: "Q2"
+output:
+  pdf_document: default
+date: "2023-03-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+library(rsample) 
+library(dplyr)
+library(randomForest)
+library(lubridate)
+library(modelr)
+library(gbm)
+library(pdp)
+library(rmarkdown)
+library(ggplot2)
+
+dengue <- read_csv("~/MA ECON/Statistical Learning/HW3/dengue.csv")
+
+dengue2 <- dengue %>% filter(is.na(dengue$max_air_temp_k) == FALSE)  %>% 
+  filter(is.na(precipitation_amt) == FALSE)
+
+dengue2$season = factor(dengue2$season)
+dengue2$city = factor(dengue2$city)
+
+# training and testing sets
+set.seed(55)
+dengue_split = initial_split(dengue2)
+dengue_train = training(dengue_split)
+dengue_test = testing(dengue_split)
+
+
+#CART Tree
+dengue_tree1 <- rpart(total_cases ~ season + city + precipitation_amt + air_temp_k +  dew_point_temp_k + specific_humidity + tdtr_k, data=dengue_train,
+                      control = rpart.control(cp = 0.0001, minsplit=10))
+
+dengue_tree2 <- prune(dengue_tree1, 
+                      cp= dengue_tree1$cptable[which.min(dengue_tree1$cptable[,"xerror"]),"CP"])
+
+#Random Forest
+dengue_forest = randomForest(total_cases ~ season + city + precipitation_amt + air_temp_k + 
+                               dew_point_temp_k + specific_humidity + tdtr_k,
+                             data=dengue_train, importance = TRUE)
+
+#Boosted Tree
+dengue_boost = gbm(total_cases ~ season + city + precipitation_amt +
+                      air_temp_k + dew_point_temp_k + specific_humidity + tdtr_k,
+                    data=dengue_train,
+                    interaction.depth=18, n.trees=1000, shrinkage=.001)
+
+#Calculate RMSE
+CART_RMSE = modelr::rmse(dengue_tree2, dengue_test)
+
+forest_RMSE = modelr::rmse(dengue_forest, dengue_test)
+
+boost_RMSE = modelr::rmse(dengue_boost, dengue_test)
+```
+
+## Tree Modelling Dengue Fever
+The goal of this
+
+We begin by selecting the independant variables season, city, precipitation, air temperature, specific humidity, dew point and temperature range. Other variables were excluded due to similarity with chosen variables or incomplete data.
+
+# CART Tree
+Next we make grow a CART tree keeping a minimum of 10 observations in each leaf and prune it back.
+
+```{r 0, echo=FALSE}
+rpart.plot(dengue_tree2, type=4, digits=-5, extra=1)
+
+
+```
+
+
+
+# Results
+Here we use the test set to calculate our estimated RMSE
+
+```{r 1}
+CART_RMSE
+forest_RMSE
+boost_RMSE
+
+```
+We note that all three methods yield very similar RMSE, this indicates that all three our relatively similar in their predictive value. Since the boosting model technically had the lowest RMSE, we will use this model for our partial dependency plots.
+
+## Partial Dependencies
+Below we have the partial dependencies with respect to specific humidity, precipitation and season.
+```{r 2, echo=FALSE}
+p1 = pdp::partial(dengue_boost, pred.var = 'specific_humidity', n.trees=1000)
+ggplot(p1) + geom_point(mapping=aes(x=specific_humidity, y=yhat))
+
+```
+
+The specific humidity appears to have little effect on cases and any effect it does have is inconsistent. Low predictions around a humidity of 18 is possibly a real effect as a substantial portion of data falls in this range but high predictions around a humidity of 19-20 are more likely to be noise.
+
+```{r 3, echo=FALSE}
+p2 = pdp::partial(dengue_boost, pred.var = 'precipitation_amt', n.trees=1000)
+ggplot(p2) + geom_point(mapping=aes(x=precipitation_amt, y=yhat))
+
+```
+
+The precipitation plot indicates little to no effect on the number of cases. The variation at low levels is almost certaintly or model picking up noise.
+
+```{r 4, echo=FALSE}
+
+p3 = pdp::partial(dengue_boost, pred.var = 'season', n.trees=1000)
+ggplot(data=p3, aes(x=season, y=yhat)) +
+  geom_bar(stat="identity")+
+  theme_minimal()
+```
+
+The above bar plot shows that summer and winter are the worst seasons for dengue, followed by spring, followed by fall. It is unclear why two opposite seasons would have the highest expected cases, but there is likely something in the fall related to human activity or mosquito breeding that inhibits dengue cases.
